@@ -46,6 +46,7 @@ retrieve_line_isr(RenderContext_t* ctx, uint8_t* buf) {
 
 /// start the next frame in the current update cycle
 static void IRAM_ATTR handle_lcd_frame_done(RenderContext_t* ctx) {
+    ctx->frame_finished = true;
     epd_lcd_frame_done_cb(NULL, NULL);
     epd_lcd_line_source_cb(NULL, NULL);
 
@@ -208,6 +209,11 @@ lcd_calculate_frame(RenderContext_t* ctx, int thread_id) {
                     return;
                 };
 
+                // the frame is over without these lines, see frame_finished
+                if (ctx->frame_finished) {
+                    lq_reset(lq);
+                    return;
+                }
                 buf = lq_current(lq);
             }
             memset(buf, 0x00, lq->element_size);
@@ -231,6 +237,10 @@ lcd_calculate_frame(RenderContext_t* ctx, int thread_id) {
                 return;
             };
 
+            if (ctx->frame_finished) {
+                lq_reset(lq);
+                return;
+            }
             buf = lq_current(lq);
         }
 

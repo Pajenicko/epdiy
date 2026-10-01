@@ -87,6 +87,11 @@ void IRAM_ATTR prepare_context_for_next_frame(RenderContext_t* ctx) {
 
     ctx->lines_prepared = 0;
     ctx->lines_consumed = 0;
+    // lines left over from a frame that ended early must not start this one
+    for (int i = 0; i < NUM_RENDER_THREADS; i++) {
+        lq_reset(&ctx->line_queues[i]);
+    }
+    ctx->frame_finished = false;
 }
 
 void epd_populate_line_mask(uint8_t* line_mask, const uint8_t* dirty_columns, int mask_len) {

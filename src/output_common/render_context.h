@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -77,6 +78,12 @@ typedef struct {
 
     /// line buffer when using epd_push_pixels
     uint8_t* static_line_buffer;
+
+    /// Set when the LCD has sent the whole frame. Line refills are done in an
+    /// interrupt that is held off while flash is written (Wi-Fi does that on
+    /// connect); refills merged that way are lost, the frame ends before every
+    /// prepared line was taken, and the render threads would wait forever.
+    volatile bool frame_finished;
 } RenderContext_t;
 
 /**
