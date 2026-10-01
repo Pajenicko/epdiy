@@ -212,6 +212,7 @@ lcd_calculate_frame(RenderContext_t* ctx, int thread_id) {
                 // the frame is over without these lines, see frame_finished
                 if (ctx->frame_finished) {
                     lq_reset(lq);
+                    ESP_LOGW("epd_lcd", "frame ended before line %d was sent; it may show artifacts", l);
                     return;
                 }
                 buf = lq_current(lq);
@@ -239,6 +240,7 @@ lcd_calculate_frame(RenderContext_t* ctx, int thread_id) {
 
             if (ctx->frame_finished) {
                 lq_reset(lq);
+                ESP_LOGW("epd_lcd", "frame ended before line %d was sent; it may show artifacts", l);
                 return;
             }
             buf = lq_current(lq);
