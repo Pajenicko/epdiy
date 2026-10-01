@@ -1,7 +1,9 @@
 #ifndef TPS65185_H
 #define TPS65185_H
 
-#include <driver/i2c.h>
+#include <driver/i2c_types.h>
+#include <esp_err.h>
+#include <stdint.h>
 
 #define TPS_REG_TMST_VALUE 0x00
 #define TPS_REG_ENABLE 0x01

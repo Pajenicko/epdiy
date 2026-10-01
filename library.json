@@ -27,6 +27,14 @@
   },
   "build": {
     "includeDir": "include",
-    "srcDir": "src/"
+    "srcDir": "src/",
+    "srcFilter": [
+      "+<*>",
+      "-<board/epd_board_v6.c>",
+      "-<board/epd_board_v7.c>",
+      "-<board/epd_board_v7_raw.c>",
+      "-<board/epd_board_v7_103.c>",
+      "-<board/lilygo_board_s3.c>"
+    ]
   }
 }

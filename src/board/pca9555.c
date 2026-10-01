@@ -1,7 +1,9 @@
 
 
 #include "pca9555.h"
-#include <driver/i2c.h>
+#include "epd_i2c.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <esp_err.h>
 #include <esp_log.h>
 #include <stdint.h>
@@ -18,62 +20,26 @@
 #define REG_CONFIG_PORT0 6
 #define REG_CONFIG_PORT1 7
 
+// Transfers go through epd_i2c (the ESP-IDF 5 master driver on a shared bus);
+// the port argument is kept for the API and ignored.
 static esp_err_t i2c_master_read_slave(i2c_port_t i2c_num, uint8_t* data_rd, size_t size, int reg) {
     if (size == 0) {
         return ESP_OK;
     }
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        ESP_LOGE("epdiy", "insufficient memory for I2C transaction");
-    }
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (EPDIY_PCA9555_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, reg, true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-    i2c_cmd_link_delete(cmd);
-
-    cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        ESP_LOGE("epdiy", "insufficient memory for I2C transaction");
-    }
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (EPDIY_PCA9555_ADDR << 1) | I2C_MASTER_READ, true);
-    if (size > 1) {
-        i2c_master_read(cmd, data_rd, size - 1, I2C_MASTER_ACK);
-    }
-    i2c_master_read_byte(cmd, data_rd + size - 1, I2C_MASTER_NACK);
-    i2c_master_stop(cmd);
-
-    ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-    i2c_cmd_link_delete(cmd);
-
-    return ESP_OK;
+    uint8_t r = (uint8_t)reg;
+    return epd_i2c_write_read(EPDIY_PCA9555_ADDR, &r, 1, data_rd, size);
 }
 
 static esp_err_t i2c_master_write_slave(
     i2c_port_t i2c_num, uint8_t ctrl, uint8_t* data_wr, size_t size
 ) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        ESP_LOGE("epdiy", "insufficient memory for I2C transaction");
+    uint8_t buf[8];
+    if (size + 1 > sizeof(buf)) {
+        return ESP_ERR_INVALID_SIZE;
     }
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (EPDIY_PCA9555_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, ctrl, true);
-
-    i2c_master_write(cmd, data_wr, size, true);
-    i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
-    return ret;
+    buf[0] = ctrl;
+    for (size_t i = 0; i < size; i++) buf[i + 1] = data_wr[i];
+    return epd_i2c_write(EPDIY_PCA9555_ADDR, buf, size + 1);
 }
 
 static esp_err_t pca9555_write_single(i2c_port_t port, int reg, uint8_t value) {

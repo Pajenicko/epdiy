@@ -7,9 +7,12 @@
 #include "esp_log.h"
 #include "pca9555.h"
 #include "tps65185.h"
+#include "epd_i2c.h"
 
 #include <driver/gpio.h>
-#include <driver/i2c.h>
+#include <driver/i2c_types.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <sdkconfig.h>
 
 // Make this compile von the ESP32 without ifdefing the whole file
@@ -112,17 +115,7 @@ static lcd_bus_config_t lcd_config = {
 static void epd_board_init(uint32_t epd_row_width) {
     gpio_hold_dis(CKH);  // free CKH after wakeup
 
-    i2c_config_t conf;
-    conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = CFG_SDA;
-    conf.scl_io_num = CFG_SCL;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = 100000;
-    conf.clk_flags = 0;
-    ESP_ERROR_CHECK(i2c_param_config(EPDIY_I2C_PORT, &conf));
-
-    ESP_ERROR_CHECK(i2c_driver_install(EPDIY_I2C_PORT, I2C_MODE_MASTER, 0, 0, 0));
+    ESP_ERROR_CHECK(epd_i2c_init(EPDIY_I2C_PORT, CFG_SDA, CFG_SCL, 100000));
 
     config_reg.port = EPDIY_I2C_PORT;
     config_reg.pwrup = false;
@@ -177,7 +170,7 @@ static void epd_board_deinit() {
     vTaskDelay(50);
     pca9555_read_input(config_reg.port, 0);
     pca9555_read_input(config_reg.port, 1);
-    i2c_driver_delete(EPDIY_I2C_PORT);
+    epd_i2c_deinit();
 
     gpio_uninstall_isr_service();
 }

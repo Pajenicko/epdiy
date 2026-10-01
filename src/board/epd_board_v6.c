@@ -1,3 +1,5 @@
+// Legacy I2C driver: not used on the paperboard, see epd_i2c.h.
+#include <driver/i2c.h>
 #include "driver/gpio.h"
 #include "epd_board.h"
 

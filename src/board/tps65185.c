@@ -5,53 +5,31 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
-#include <driver/i2c.h>
+#include "epd_i2c.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <stdint.h>
 
 static const int EPDIY_TPS_ADDR = 0x68;
 
+// Transfers go through epd_i2c (the ESP-IDF 5 master driver on a shared bus);
+// the port argument is kept for the API and ignored.
 static uint8_t i2c_master_read_slave(i2c_port_t i2c_num, int reg) {
-    uint8_t r_data[1];
-
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (EPDIY_TPS_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, reg, true);
-    i2c_master_stop(cmd);
-
-    ESP_ERROR_CHECK(i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS));
-    i2c_cmd_link_delete(cmd);
-
-    cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (EPDIY_TPS_ADDR << 1) | I2C_MASTER_READ, true);
-    /*
-        if (size > 1) {
-        i2c_master_read(cmd, data_rd, size - 1, I2C_MASTER_ACK);
-    }
-    */
-    i2c_master_read_byte(cmd, r_data, I2C_MASTER_NACK);
-    i2c_master_stop(cmd);
-
-    ESP_ERROR_CHECK(i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS));
-    i2c_cmd_link_delete(cmd);
-
-    return r_data[0];
+    uint8_t r = (uint8_t)reg, value = 0;
+    ESP_ERROR_CHECK(epd_i2c_write_read(EPDIY_TPS_ADDR, &r, 1, &value, 1));
+    return value;
 }
 
 static esp_err_t i2c_master_write_slave(
     i2c_port_t i2c_num, uint8_t ctrl, uint8_t* data_wr, size_t size
 ) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (EPDIY_TPS_ADDR << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, ctrl, true);
-
-    i2c_master_write(cmd, data_wr, size, true);
-    i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
-    return ret;
+    uint8_t buf[8];
+    if (size + 1 > sizeof(buf)) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    buf[0] = ctrl;
+    for (size_t i = 0; i < size; i++) buf[i + 1] = data_wr[i];
+    return epd_i2c_write(EPDIY_TPS_ADDR, buf, size + 1);
 }
 
 esp_err_t tps_write_register(i2c_port_t port, int reg, uint8_t value) {
